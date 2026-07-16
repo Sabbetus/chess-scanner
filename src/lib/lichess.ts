@@ -122,8 +122,13 @@ export async function listStudies(auth: LichessAuth): Promise<Study[]> {
     .map((s) => ({ id: s.id, name: s.name }))
 }
 
-/** Imports a PGN as a new chapter in an existing study. */
-export async function importPgnToStudy(auth: LichessAuth, studyId: string, pgn: string, chapterName: string): Promise<void> {
+/** Imports a PGN as a new chapter in an existing study. Returns the URL of the new chapter. */
+export async function importPgnToStudy(
+  auth: LichessAuth,
+  studyId: string,
+  pgn: string,
+  chapterName: string,
+): Promise<string> {
   const res = await fetch(`https://lichess.org/api/study/${studyId}/import-pgn`, {
     method: 'POST',
     headers: {
@@ -136,6 +141,9 @@ export async function importPgnToStudy(auth: LichessAuth, studyId: string, pgn: 
     const body = await res.text().catch(() => '')
     throw new Error(`Failed to import PGN to study: ${res.status} ${body.slice(0, 300)}`)
   }
+  const data = await res.json().catch(() => null)
+  const chapterId: string | undefined = data?.chapters?.[0]?.id
+  return chapterId ? `https://lichess.org/study/${studyId}/${chapterId}` : `https://lichess.org/study/${studyId}`
 }
 
 async function fetchJson(url: string, token: string): Promise<any> {

@@ -17,6 +17,7 @@ export function ExportPanel({ legalMoves, metadata, onMetadataChange, allMovesVa
   const [studies, setStudies] = useState<Study[]>([])
   const [selectedStudy, setSelectedStudy] = useState('')
   const [status, setStatus] = useState<string | null>(null)
+  const [chapterUrl, setChapterUrl] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const pgn = allMovesValid ? buildPgn(legalMoves, metadata) : ''
@@ -38,10 +39,12 @@ export function ExportPanel({ legalMoves, metadata, onMetadataChange, allMovesVa
     if (!auth || !selectedStudy || !pgn) return
     setBusy(true)
     setStatus(null)
+    setChapterUrl(null)
     try {
       const chapterName = `${metadata.white || '?'} - ${metadata.black || '?'} | ${formatResult(metadata.result)}`
-      await lichess.importPgnToStudy(auth, selectedStudy, pgn, chapterName)
+      const url = await lichess.importPgnToStudy(auth, selectedStudy, pgn, chapterName)
       setStatus('Imported into lichess study ✓')
+      setChapterUrl(url)
     } catch (e) {
       setStatus(e instanceof Error ? e.message : String(e))
     } finally {
@@ -132,7 +135,19 @@ export function ExportPanel({ legalMoves, metadata, onMetadataChange, allMovesVa
         </>
       )}
 
-      {status && <p className="status">{status}</p>}
+      {status && (
+        <p className="status">
+          {status}
+          {chapterUrl && (
+            <>
+              {' '}
+              <a href={chapterUrl} target="_blank" rel="noreferrer">
+                Open on lichess ↗
+              </a>
+            </>
+          )}
+        </p>
+      )}
     </div>
   )
 }
