@@ -123,13 +123,58 @@ function parseOcrJson(text: string): OcrResult {
   }
 }
 
+// Phone photos are commonly 3000-4000px on the long edge, far more detail than OCR needs and
+// slower to upload/process for no accuracy gain. Downscale before sending; leave small images
+// (already-cropped scans, screenshots) untouched to avoid needless recompression.
+const MAX_DIMENSION = 1600
+
 export function fileToBase64(file: File): Promise<{ base64: string; mediaType: string }> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file)
+    const img = new Image()
+
+    img.onload = () => {
+      const longEdge = Math.max(img.width, img.height)
+
+      if (longEdge <= MAX_DIMENSION) {
+        URL.revokeObjectURL(objectUrl)
+        readFileAsBase64(file).then(resolve, reject)
+        return
+      }
+
+      const scale = MAX_DIMENSION / longEdge
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(img.width * scale)
+      canvas.height = Math.round(img.height * scale)
+      const ctx = canvas.getContext('2d')
+      URL.revokeObjectURL(objectUrl)
+
+      if (!ctx) {
+        readFileAsBase64(file).then(resolve, reject)
+        return
+      }
+
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
+      resolve({ base64: dataUrl.split(',')[1] ?? '', mediaType: 'image/jpeg' })
+    }
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      // Fall back to sending the original file rather than failing the whole capture.
+      readFileAsBase64(file).then(resolve, reject)
+    }
+
+    img.src = objectUrl
+  })
+}
+
+function readFileAsBase64(file: File): Promise<{ base64: string; mediaType: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => {
       const result = reader.result as string
-      const base64 = result.split(',')[1] ?? ''
-      resolve({ base64, mediaType: file.type || 'image/jpeg' })
+      resolve({ base64: result.split(',')[1] ?? '', mediaType: file.type || 'image/jpeg' })
     }
     reader.onerror = () => reject(reader.error)
     reader.readAsDataURL(file)
