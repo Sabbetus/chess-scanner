@@ -16,6 +16,7 @@ export function ReviewBoard({ moves, finalFen, firstErrorIndex, onCorrect }: Pro
   // currentIndex of -1 means "starting position, no moves played yet".
   // Otherwise it's the index of the move whose resulting position is shown.
   const [currentIndex, setCurrentIndex] = useState<number>(defaultIndex(moves, firstErrorIndex))
+  const [orientation, setOrientation] = useState<'white' | 'black'>('white')
 
   // Jump to a sensible default whenever a fresh scan comes in (move count changes).
   useEffect(() => {
@@ -38,10 +39,20 @@ export function ReviewBoard({ moves, finalFen, firstErrorIndex, onCorrect }: Pro
   return (
     <div className="review-board">
       <div className="board-wrap">
-        <Chessboard options={{ position: displayFen, allowDragging: false, id: 'review-board' }} />
+        <Chessboard
+          options={{ position: displayFen, allowDragging: false, id: 'review-board', boardOrientation: orientation }}
+        />
         <div className="board-nav">
           <button type="button" onClick={goPrev} disabled={currentIndex < 0} aria-label="Previous move">
             ◀ Prev
+          </button>
+          <button
+            type="button"
+            onClick={() => setOrientation((o) => (o === 'white' ? 'black' : 'white'))}
+            aria-label="Flip board"
+            title="Flip board"
+          >
+            ⇅ Flip
           </button>
           <button type="button" onClick={goNext} disabled={currentIndex >= moves.length - 1} aria-label="Next move">
             Next ▶
