@@ -60,8 +60,8 @@ export function ReviewBoard({ moves, finalFen, firstErrorIndex, onCorrect }: Pro
         </div>
         {firstErrorIndex !== null && (
           <p className="error">
-            Move {firstErrorIndex + 1} ({moves[firstErrorIndex]?.san || '(blank)'}) doesn't look legal. Fix it below to
-            continue.
+            {describeMove(firstErrorIndex)} ({moves[firstErrorIndex]?.san || '(blank)'}) doesn't look legal. Fix it
+            below to continue.
           </p>
         )}
       </div>
@@ -89,6 +89,13 @@ export function ReviewBoard({ moves, finalFen, firstErrorIndex, onCorrect }: Pro
 function defaultIndex(moves: ValidatedMove[], firstErrorIndex: number | null): number {
   if (moves.length === 0) return -1
   return firstErrorIndex ?? moves.length - 1
+}
+
+/** Chess move numbering: one move = one White + one Black half-move. Index 33 -> "Black's move 17". */
+function describeMove(index: number): string {
+  const moveNumber = Math.floor(index / 2) + 1
+  const side = index % 2 === 0 ? 'White' : 'Black'
+  return `${side}'s move ${moveNumber}`
 }
 
 function MoveCell({

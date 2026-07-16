@@ -39,6 +39,7 @@ const EMPTY_METADATA: GameMetadata = {
 export default function App() {
   const [images, setImages] = useState<CapturedImage[]>([])
   const [scanning, setScanning] = useState(false)
+  const [scanProgress, setScanProgress] = useState(0)
   const [scanError, setScanError] = useState<string | null>(null)
   const [sanMoves, setSanMoves] = useState<string[]>(() => loadSessionState()?.sanMoves ?? [])
   const [metadata, setMetadata] = useState<GameMetadata>(() => loadSessionState()?.metadata ?? EMPTY_METADATA)
@@ -63,6 +64,7 @@ export default function App() {
 
   async function handleScan() {
     setScanning(true)
+    setScanProgress(0)
     setScanError(null)
     try {
       const apiKey = getAnthropicApiKey()
@@ -71,6 +73,7 @@ export default function App() {
         images.map((i) => ({ base64: i.base64, mediaType: i.mediaType })),
         apiKey,
         model,
+        setScanProgress,
       )
       setSanMoves(result.moves)
       setMetadata({
@@ -126,6 +129,7 @@ export default function App() {
           onImagesChange={setImages}
           onScan={handleScan}
           scanning={scanning}
+          scanProgress={scanProgress}
           error={scanError}
         />
       )}

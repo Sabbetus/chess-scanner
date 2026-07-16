@@ -33,6 +33,7 @@ export async function transcribeScoresheet(
   images: { base64: string; mediaType: string }[],
   apiKey: string,
   model: string,
+  onProgress?: (movesSoFar: number) => void,
 ): Promise<OcrResult> {
   if (!apiKey) throw new Error('No Anthropic API key set. Add one in Settings.')
   if (images.length === 0) throw new Error('No images to transcribe.')
@@ -49,15 +50,15 @@ export async function transcribeScoresheet(
   const requestBody = JSON.stringify({
     model,
     max_tokens: 8192,
+    stream: true,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content }],
   })
 
   const res = await fetchWithRetry(requestBody, apiKey)
-  const data = await res.json()
-  const text: string = data?.content?.find((b: { type: string }) => b.type === 'text')?.text ?? ''
+  const { text, stopReason } = await readStream(res, onProgress)
 
-  if (data?.stop_reason === 'max_tokens') {
+  if (stopReason === 'max_tokens') {
     throw new Error(
       "The response was cut off before it finished (the game may be very long, or the photo has a lot of detail). " +
       'Try again — if it keeps happening, try scanning fewer pages at once.',
@@ -65,6 +66,67 @@ export async function transcribeScoresheet(
   }
 
   return parseOcrJson(text)
+}
+
+/** Consumes the SSE stream, reporting how many moves have been transcribed so far. */
+async function readStream(
+  res: Response,
+  onProgress?: (movesSoFar: number) => void,
+): Promise<{ text: string; stopReason: string | null }> {
+  if (!res.body) throw new Error('No response body from Anthropic API.')
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let text = ''
+  let stopReason: string | null = null
+  let lastCount = -1
+
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+
+    // SSE frames are separated by blank lines; keep any trailing partial frame in the buffer.
+    const frames = buffer.split('\n\n')
+    buffer = frames.pop() ?? ''
+
+    for (const frame of frames) {
+      for (const line of frame.split('\n')) {
+        if (!line.startsWith('data: ')) continue
+        let event: any
+        try {
+          event = JSON.parse(line.slice(6))
+        } catch {
+          continue
+        }
+        if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+          text += event.delta.text
+        } else if (event.type === 'message_delta' && event.delta?.stop_reason) {
+          stopReason = event.delta.stop_reason
+        }
+      }
+    }
+
+    if (onProgress) {
+      const count = countMovesInPartialJson(text)
+      if (count !== lastCount) {
+        lastCount = count
+        onProgress(count)
+      }
+    }
+  }
+
+  return { text, stopReason }
+}
+
+/** Counts complete quoted strings after "moves":[ in a possibly-incomplete JSON response. */
+export function countMovesInPartialJson(text: string): number {
+  const movesKey = text.indexOf('"moves"')
+  if (movesKey < 0) return 0
+  const bracket = text.indexOf('[', movesKey)
+  if (bracket < 0) return 0
+  return (text.slice(bracket).match(/"[^"]*"/g) ?? []).length
 }
 
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 529])

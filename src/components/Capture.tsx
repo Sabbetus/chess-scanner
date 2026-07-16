@@ -13,10 +13,12 @@ interface Props {
   onImagesChange: (images: CapturedImage[]) => void
   onScan: () => void
   scanning: boolean
+  /** half-moves transcribed so far while the scan streams in */
+  scanProgress: number
   error: string | null
 }
 
-export function Capture({ images, onImagesChange, onScan, scanning, error }: Props) {
+export function Capture({ images, onImagesChange, onScan, scanning, scanProgress, error }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function handleFiles(fileList: FileList | null) {
@@ -72,7 +74,11 @@ export function Capture({ images, onImagesChange, onScan, scanning, error }: Pro
       {error && <p className="error">{error}</p>}
 
       <button type="button" disabled={images.length === 0 || scanning} onClick={onScan}>
-        {scanning ? 'Scanning…' : 'Scan scoresheet'}
+        {scanning
+          ? scanProgress > 0
+            ? `Scanning… move ${Math.ceil(scanProgress / 2)}`
+            : 'Scanning…'
+          : 'Scan scoresheet'}
       </button>
     </div>
   )
