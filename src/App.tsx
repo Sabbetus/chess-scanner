@@ -93,10 +93,28 @@ export default function App() {
     setSanMoves((prev) => applyCorrection(prev, index, newSan))
   }
 
+  function resetToCapture() {
+    sessionStorage.removeItem(SESSION_KEY)
+    setImages([])
+    setSanMoves([])
+    setMetadata(EMPTY_METADATA)
+    setScanError(null)
+    setStep('capture')
+  }
+
   return (
     <div className="app">
       <header>
-        <h1>Chess Scanner</h1>
+        <a
+          href="."
+          className="home-link"
+          onClick={(e) => {
+            e.preventDefault()
+            resetToCapture()
+          }}
+        >
+          <h1>Chess Scanner</h1>
+        </a>
         <button type="button" onClick={() => setShowSettings(true)}>Settings</button>
       </header>
 
@@ -141,6 +159,10 @@ export default function App() {
             onMetadataChange={setMetadata}
             allMovesValid={allMovesValid}
           />
+
+          <div className="step">
+            <button type="button" onClick={resetToCapture}>Scan a new game</button>
+          </div>
         </>
       )}
 
