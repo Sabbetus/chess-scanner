@@ -25,7 +25,9 @@ Respond with ONLY a JSON object matching this TypeScript type, no prose, no mark
   "white": string, "black": string, "result": string,
   "moves": string[]
 }
-Use "" for any header field you cannot find. Use "*" for result if unknown.`
+Use "" for any header field you cannot find. Use "*" for result if unknown.
+Output compact, minified JSON on as few lines as possible — no indentation, no line breaks between array
+elements. This matters: a long game's move list must fit comfortably within the output budget.`
 
 export async function transcribeScoresheet(
   images: { base64: string; mediaType: string }[],
@@ -46,7 +48,7 @@ export async function transcribeScoresheet(
 
   const requestBody = JSON.stringify({
     model,
-    max_tokens: 4096,
+    max_tokens: 8192,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content }],
   })
@@ -54,6 +56,14 @@ export async function transcribeScoresheet(
   const res = await fetchWithRetry(requestBody, apiKey)
   const data = await res.json()
   const text: string = data?.content?.find((b: { type: string }) => b.type === 'text')?.text ?? ''
+
+  if (data?.stop_reason === 'max_tokens') {
+    throw new Error(
+      "The response was cut off before it finished (the game may be very long, or the photo has a lot of detail). " +
+      'Try again — if it keeps happening, try scanning fewer pages at once.',
+    )
+  }
+
   return parseOcrJson(text)
 }
 
