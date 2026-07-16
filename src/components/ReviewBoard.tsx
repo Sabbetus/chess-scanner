@@ -1,5 +1,5 @@
 import { Chessboard } from 'react-chessboard'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ValidatedMove } from '../lib/validate'
 import { suggestLegalMoves } from '../lib/validate'
 
@@ -10,19 +10,43 @@ interface Props {
   onCorrect: (index: number, newSan: string) => void
 }
 
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+
 export function ReviewBoard({ moves, finalFen, firstErrorIndex, onCorrect }: Props) {
-  const [viewIndex, setViewIndex] = useState<number | null>(null)
+  // currentIndex of -1 means "starting position, no moves played yet".
+  // Otherwise it's the index of the move whose resulting position is shown.
+  const [currentIndex, setCurrentIndex] = useState<number>(defaultIndex(moves, firstErrorIndex))
+
+  // Jump to a sensible default whenever a fresh scan comes in (move count changes).
+  useEffect(() => {
+    setCurrentIndex(defaultIndex(moves, firstErrorIndex))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moves.length])
 
   const displayFen = useMemo(() => {
-    if (viewIndex === null) return finalFen
-    const m = moves[viewIndex]
-    return m?.fenBefore ?? finalFen
-  }, [viewIndex, moves, finalFen])
+    if (currentIndex < 0) return moves[0]?.fenBefore ?? START_FEN
+    return moves[currentIndex]?.fenAfter ?? finalFen
+  }, [currentIndex, moves, finalFen])
+
+  function goPrev() {
+    setCurrentIndex((i) => Math.max(-1, i - 1))
+  }
+  function goNext() {
+    setCurrentIndex((i) => Math.min(moves.length - 1, i + 1))
+  }
 
   return (
     <div className="review-board">
       <div className="board-wrap">
         <Chessboard options={{ position: displayFen, allowDragging: false, id: 'review-board' }} />
+        <div className="board-nav">
+          <button type="button" onClick={goPrev} disabled={currentIndex < 0} aria-label="Previous move">
+            ◀ Prev
+          </button>
+          <button type="button" onClick={goNext} disabled={currentIndex >= moves.length - 1} aria-label="Next move">
+            Next ▶
+          </button>
+        </div>
         {firstErrorIndex !== null && (
           <p className="error">
             Move {firstErrorIndex + 1} ({moves[firstErrorIndex]?.san || '(blank)'}) doesn't look legal. Fix it below to
@@ -39,21 +63,21 @@ export function ReviewBoard({ moves, finalFen, firstErrorIndex, onCorrect }: Pro
               <MoveCell
                 key={m.index}
                 move={m}
-                isCurrent={viewIndex === m.index}
-                onSelect={() => setViewIndex(m.index)}
+                isCurrent={currentIndex === m.index}
+                onSelect={() => setCurrentIndex(m.index)}
                 onCorrect={(san) => onCorrect(m.index, san)}
               />
             ))}
           </li>
         ))}
       </ol>
-      {viewIndex !== null && (
-        <button type="button" onClick={() => setViewIndex(null)}>
-          Back to final position
-        </button>
-      )}
     </div>
   )
+}
+
+function defaultIndex(moves: ValidatedMove[], firstErrorIndex: number | null): number {
+  if (moves.length === 0) return -1
+  return firstErrorIndex ?? moves.length - 1
 }
 
 function MoveCell({
@@ -120,7 +144,7 @@ function MoveCell({
         setText(move.san)
         setEditing(true)
       }}
-      title="Click to view position, double-click to edit"
+      title="Click to view resulting position, double-click to edit"
     >
       {move.san || '(blank)'}
     </span>

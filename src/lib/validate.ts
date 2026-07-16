@@ -9,6 +9,8 @@ export interface ValidatedMove {
   legalMoves: string[]
   /** FEN before this move was attempted */
   fenBefore: string
+  /** FEN after this move (equal to fenBefore if the move failed to apply) */
+  fenAfter: string
 }
 
 export interface ValidationResult {
@@ -30,16 +32,16 @@ export function validateMoves(sanMoves: string[]): ValidationResult {
     const legalMoves = chess.moves()
 
     if (!raw || raw === '?' || firstErrorIndex !== null) {
-      moves.push({ index: i, san: raw, ok: false, legalMoves, fenBefore })
+      moves.push({ index: i, san: raw, ok: false, legalMoves, fenBefore, fenAfter: fenBefore })
       if (firstErrorIndex === null) firstErrorIndex = i
       continue
     }
 
     try {
       chess.move(raw)
-      moves.push({ index: i, san: raw, ok: true, legalMoves, fenBefore })
+      moves.push({ index: i, san: raw, ok: true, legalMoves, fenBefore, fenAfter: chess.fen() })
     } catch {
-      moves.push({ index: i, san: raw, ok: false, legalMoves, fenBefore })
+      moves.push({ index: i, san: raw, ok: false, legalMoves, fenBefore, fenAfter: fenBefore })
       firstErrorIndex = i
     }
   }

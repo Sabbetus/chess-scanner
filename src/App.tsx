@@ -12,21 +12,51 @@ import './App.css'
 
 type Step = 'capture' | 'review'
 
+// Logging in to lichess is a full-page redirect (and back), which would otherwise wipe all
+// React state. We stash the in-progress scan here (sessionStorage: cleared when the tab closes,
+// never sent anywhere) and restore it on load so the review/export step survives the round trip.
+const SESSION_KEY = 'chess-scanner:session-state'
+
+interface SessionState {
+  step: Step
+  sanMoves: string[]
+  metadata: GameMetadata
+}
+
+function loadSessionState(): SessionState | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+const EMPTY_METADATA: GameMetadata = {
+  event: '', site: '', date: '', round: '', white: '', black: '', result: '*',
+}
+
 export default function App() {
   const [images, setImages] = useState<CapturedImage[]>([])
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
-  const [sanMoves, setSanMoves] = useState<string[]>([])
-  const [metadata, setMetadata] = useState<GameMetadata>({
-    event: '', site: '', date: '', round: '', white: '', black: '', result: '*',
-  })
-  const [step, setStep] = useState<Step>('capture')
+  const [sanMoves, setSanMoves] = useState<string[]>(() => loadSessionState()?.sanMoves ?? [])
+  const [metadata, setMetadata] = useState<GameMetadata>(() => loadSessionState()?.metadata ?? EMPTY_METADATA)
+  const [step, setStep] = useState<Step>(() => loadSessionState()?.step ?? 'capture')
   const [showSettings, setShowSettings] = useState(false)
   const [lichessError, setLichessError] = useState<string | null>(null)
 
   useEffect(() => {
     completeLoginIfRedirected().catch((e) => setLichessError(e.message))
   }, [])
+
+  useEffect(() => {
+    if (step === 'review') {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ step, sanMoves, metadata }))
+    } else {
+      sessionStorage.removeItem(SESSION_KEY)
+    }
+  }, [step, sanMoves, metadata])
 
   const validation = validateMoves(sanMoves)
   const allMovesValid = sanMoves.length > 0 && validation.firstErrorIndex === null
@@ -49,7 +79,11 @@ export default function App() {
       })
       setStep('review')
     } catch (e) {
-      setScanError(e instanceof Error ? e.message : String(e))
+      const message = e instanceof Error ? e.message : String(e)
+      const friendly = message.includes('529') || message.includes('overloaded')
+        ? "Anthropic's API is temporarily overloaded (this happens occasionally). Please wait a moment and try scanning again."
+        : message
+      setScanError(friendly)
     } finally {
       setScanning(false)
     }
@@ -89,7 +123,16 @@ export default function App() {
               firstErrorIndex={validation.firstErrorIndex}
               onCorrect={handleCorrect}
             />
-            <button type="button" onClick={() => setStep('capture')}>Back to photos</button>
+            <button
+              type="button"
+              onClick={() => {
+                sessionStorage.removeItem(SESSION_KEY)
+                setStep('capture')
+                setSanMoves([])
+              }}
+            >
+              Back to photos
+            </button>
           </div>
 
           <ExportPanel

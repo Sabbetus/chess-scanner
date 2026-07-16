@@ -96,6 +96,12 @@ button.danger {
   flex-shrink: 0;
 }
 
+.board-nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
 .move-list {
   list-style: none;
   padding: 0;

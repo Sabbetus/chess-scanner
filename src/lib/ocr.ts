@@ -44,30 +44,51 @@ export async function transcribeScoresheet(
     text: 'Transcribe this chess scoresheet into the JSON format described in your instructions.',
   })
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 4096,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content }],
-    }),
+  const requestBody = JSON.stringify({
+    model,
+    max_tokens: 4096,
+    system: SYSTEM_PROMPT,
+    messages: [{ role: 'user', content }],
   })
 
-  if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    throw new Error(`Anthropic API error ${res.status}: ${body.slice(0, 500)}`)
-  }
-
+  const res = await fetchWithRetry(requestBody, apiKey)
   const data = await res.json()
   const text: string = data?.content?.find((b: { type: string }) => b.type === 'text')?.text ?? ''
   return parseOcrJson(text)
+}
+
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 529])
+
+/** Anthropic occasionally returns 529 (overloaded) or other 5xx errors; retry a few times with backoff. */
+async function fetchWithRetry(body: string, apiKey: string, maxAttempts = 4): Promise<Response> {
+  let lastError: Error | null = null
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body,
+    })
+
+    if (res.ok) return res
+
+    const responseBody = await res.text().catch(() => '')
+    lastError = new Error(`Anthropic API error ${res.status}: ${responseBody.slice(0, 500)}`)
+
+    if (!RETRYABLE_STATUSES.has(res.status) || attempt === maxAttempts) {
+      throw lastError
+    }
+
+    const delayMs = 1000 * 2 ** (attempt - 1)
+    await new Promise((resolve) => setTimeout(resolve, delayMs))
+  }
+
+  throw lastError ?? new Error('Anthropic API request failed.')
 }
 
 function parseOcrJson(text: string): OcrResult {
