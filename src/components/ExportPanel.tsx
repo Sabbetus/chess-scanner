@@ -39,7 +39,7 @@ export function ExportPanel({ legalMoves, metadata, onMetadataChange, allMovesVa
     setBusy(true)
     setStatus(null)
     try {
-      const chapterName = `${metadata.white || '?'} - ${metadata.black || '?'}`
+      const chapterName = `${metadata.white || '?'} - ${metadata.black || '?'} | ${formatResult(metadata.result)}`
       await lichess.importPgnToStudy(auth, selectedStudy, pgn, chapterName)
       setStatus('Imported into lichess study ✓')
     } catch (e) {
@@ -135,4 +135,10 @@ export function ExportPanel({ legalMoves, metadata, onMetadataChange, allMovesVa
       {status && <p className="status">{status}</p>}
     </div>
   )
+}
+
+/** Chapter-name result format: comma as decimal separator, e.g. "1/2-1/2" -> "0,5-0,5". */
+function formatResult(result: string): string {
+  if (result === '1/2-1/2') return '0,5-0,5'
+  return result
 }
