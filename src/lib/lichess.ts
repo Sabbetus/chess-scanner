@@ -6,7 +6,8 @@ import { getLichessAuth, setLichessAuth, type LichessAuth } from './storage'
 const CLIENT_ID = 'chess-scanner-local'
 const AUTH_URL = 'https://lichess.org/oauth'
 const TOKEN_URL = 'https://lichess.org/api/token'
-const SCOPES = 'study:write'
+// study:read is needed to list studies (including private ones); study:write to import the PGN.
+const SCOPES = 'study:read study:write'
 const PKCE_VERIFIER_KEY = 'chess-scanner:pkce-verifier'
 const PKCE_STATE_KEY = 'chess-scanner:pkce-state'
 

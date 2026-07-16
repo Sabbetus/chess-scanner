@@ -231,6 +231,16 @@ button.danger {
   margin: 8px 0;
 }
 
+.lichess-export select {
+  font: inherit;
+  padding: 8px 10px;
+  min-width: 260px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+}
+
 .settings-overlay {
   position: fixed;
   inset: 0;
