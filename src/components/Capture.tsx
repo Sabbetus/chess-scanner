@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { fileToBase64 } from '../lib/ocr'
 
 export interface CapturedImage {
@@ -20,6 +20,20 @@ interface Props {
 
 export function Capture({ images, onImagesChange, onScan, scanning, scanProgress, error }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+
+  // The browser sometimes buffers the whole (gzip-compressed) streamed response until it's
+  // nearly done, so the move counter can go quiet for a while even though real progress is
+  // happening server-side. An elapsed-time tick keeps the button visibly alive either way.
+  useEffect(() => {
+    if (!scanning) {
+      setElapsedSeconds(0)
+      return
+    }
+    const start = Date.now()
+    const interval = setInterval(() => setElapsedSeconds(Math.floor((Date.now() - start) / 1000)), 1000)
+    return () => clearInterval(interval)
+  }, [scanning])
 
   async function handleFiles(fileList: FileList | null) {
     if (!fileList) return
@@ -74,12 +88,16 @@ export function Capture({ images, onImagesChange, onScan, scanning, scanProgress
       {error && <p className="error">{error}</p>}
 
       <button type="button" disabled={images.length === 0 || scanning} onClick={onScan}>
-        {scanning
-          ? scanProgress > 0
-            ? `Scanning… move ${Math.ceil(scanProgress / 2)}`
-            : 'Scanning…'
-          : 'Scan scoresheet'}
+        {scanning ? scanButtonLabel(scanProgress, elapsedSeconds) : 'Scan scoresheet'}
       </button>
     </div>
   )
+}
+
+function scanButtonLabel(scanProgress: number, elapsedSeconds: number): string {
+  const moveLabel = scanProgress > 0 ? `move ${Math.ceil(scanProgress / 2)}` : null
+  if (moveLabel && elapsedSeconds > 0) return `Scanning… ${moveLabel} (${elapsedSeconds}s)`
+  if (moveLabel) return `Scanning… ${moveLabel}`
+  if (elapsedSeconds > 0) return `Scanning… (${elapsedSeconds}s)`
+  return 'Scanning…'
 }
