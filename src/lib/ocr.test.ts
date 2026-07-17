@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { countMovesInPartialJson, transcribeScoresheet } from './ocr'
+import { countMovesInPartialJson, transcribeScoresheet, type ScanProgress } from './ocr'
 
 function sseResponse(events: object[]): Response {
   const encoder = new TextEncoder()
@@ -24,17 +24,19 @@ describe('transcribeScoresheet (streamed)', () => {
       sseResponse(chunks.map((text) => ({ type: 'content_block_delta', delta: { type: 'text_delta', text } }))),
     ))
 
-    const progress: number[] = []
+    const progress: ScanProgress[] = []
     const result = await transcribeScoresheet(
       [{ base64: 'aGk=', mediaType: 'image/jpeg' }],
       'test-key',
       'test-model',
-      (n) => progress.push(n),
+      (p) => progress.push(p),
     )
 
     expect(result.moves).toEqual(['d4', 'd5', 'c4'])
     expect(result.white).toBe('A')
-    expect(progress[progress.length - 1]).toBe(3)
+    expect(progress[0]).toEqual({ stage: 'uploading', moveCount: 0 })
+    expect(progress.some((p) => p.stage === 'transcribing')).toBe(true)
+    expect(progress[progress.length - 1]).toEqual({ stage: 'transcribing', moveCount: 3 })
   })
 
   it('surfaces max_tokens truncation as a clear error', async () => {

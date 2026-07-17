@@ -29,14 +29,24 @@ Use "" for any header field you cannot find. Use "*" for result if unknown.
 Output compact, minified JSON on as few lines as possible — no indentation, no line breaks between array
 elements. This matters: a long game's move list must fit comfortably within the output budget.`
 
+export type ScanStage = 'uploading' | 'transcribing'
+
+export interface ScanProgress {
+  stage: ScanStage
+  /** full-move count so far; only meaningful once stage is 'transcribing' */
+  moveCount: number
+}
+
 export async function transcribeScoresheet(
   images: { base64: string; mediaType: string }[],
   apiKey: string,
   model: string,
-  onProgress?: (movesSoFar: number) => void,
+  onProgress?: (progress: ScanProgress) => void,
 ): Promise<OcrResult> {
   if (!apiKey) throw new Error('No Anthropic API key set. Add one in Settings.')
   if (images.length === 0) throw new Error('No images to transcribe.')
+
+  onProgress?.({ stage: 'uploading', moveCount: 0 })
 
   const content: unknown[] = images.map((img) => ({
     type: 'image',
@@ -68,10 +78,14 @@ export async function transcribeScoresheet(
   return parseOcrJson(text)
 }
 
-/** Consumes the SSE stream, reporting how many moves have been transcribed so far. */
+/**
+ * Consumes the SSE stream, reporting progress as it becomes known. Until the response text
+ * contains the "moves" key, we're still in the opaque "uploading / model reading the photo"
+ * phase from the client's point of view — there is no earlier signal to report.
+ */
 async function readStream(
   res: Response,
-  onProgress?: (movesSoFar: number) => void,
+  onProgress?: (progress: ScanProgress) => void,
 ): Promise<{ text: string; stopReason: string | null }> {
   if (!res.body) throw new Error('No response body from Anthropic API.')
 
@@ -80,6 +94,7 @@ async function readStream(
   let buffer = ''
   let text = ''
   let stopReason: string | null = null
+  let lastStage: ScanStage = 'uploading'
   let lastCount = -1
 
   for (;;) {
@@ -110,9 +125,11 @@ async function readStream(
 
     if (onProgress) {
       const count = countMovesInPartialJson(text)
-      if (count !== lastCount) {
+      const stage: ScanStage = text.includes('"moves"') ? 'transcribing' : 'uploading'
+      if (stage !== lastStage || count !== lastCount) {
+        lastStage = stage
         lastCount = count
-        onProgress(count)
+        onProgress({ stage, moveCount: count })
       }
     }
   }

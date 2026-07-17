@@ -3,7 +3,7 @@ import { Capture, type CapturedImage } from './components/Capture'
 import { ReviewBoard } from './components/ReviewBoard'
 import { ExportPanel } from './components/ExportPanel'
 import { Settings } from './components/Settings'
-import { transcribeScoresheet } from './lib/ocr'
+import { transcribeScoresheet, type ScanProgress } from './lib/ocr'
 import { applyCorrection, validateMoves } from './lib/validate'
 import type { GameMetadata } from './lib/pgn'
 import { getAnthropicApiKey, getAnthropicModel } from './lib/storage'
@@ -39,7 +39,7 @@ const EMPTY_METADATA: GameMetadata = {
 export default function App() {
   const [images, setImages] = useState<CapturedImage[]>([])
   const [scanning, setScanning] = useState(false)
-  const [scanProgress, setScanProgress] = useState(0)
+  const [scanProgress, setScanProgress] = useState<ScanProgress>({ stage: 'uploading', moveCount: 0 })
   const [scanError, setScanError] = useState<string | null>(null)
   const [sanMoves, setSanMoves] = useState<string[]>(() => loadSessionState()?.sanMoves ?? [])
   const [metadata, setMetadata] = useState<GameMetadata>(() => loadSessionState()?.metadata ?? EMPTY_METADATA)
@@ -64,7 +64,7 @@ export default function App() {
 
   async function handleScan() {
     setScanning(true)
-    setScanProgress(0)
+    setScanProgress({ stage: 'uploading', moveCount: 0 })
     setScanError(null)
     try {
       const apiKey = getAnthropicApiKey()

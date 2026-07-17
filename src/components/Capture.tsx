@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { fileToBase64 } from '../lib/ocr'
+import { fileToBase64, type ScanProgress } from '../lib/ocr'
 
 export interface CapturedImage {
   file: File
@@ -13,8 +13,7 @@ interface Props {
   onImagesChange: (images: CapturedImage[]) => void
   onScan: () => void
   scanning: boolean
-  /** half-moves transcribed so far while the scan streams in */
-  scanProgress: number
+  scanProgress: ScanProgress
   error: string | null
 }
 
@@ -94,10 +93,15 @@ export function Capture({ images, onImagesChange, onScan, scanning, scanProgress
   )
 }
 
-function scanButtonLabel(scanProgress: number, elapsedSeconds: number): string {
-  const moveLabel = scanProgress > 0 ? `move ${Math.ceil(scanProgress / 2)}` : null
-  if (moveLabel && elapsedSeconds > 0) return `Scanning… ${moveLabel} (${elapsedSeconds}s)`
-  if (moveLabel) return `Scanning… ${moveLabel}`
-  if (elapsedSeconds > 0) return `Scanning… (${elapsedSeconds}s)`
-  return 'Scanning…'
+function scanButtonLabel(progress: ScanProgress, elapsedSeconds: number): string {
+  const suffix = elapsedSeconds > 0 ? ` (${elapsedSeconds}s)` : ''
+
+  if (progress.stage === 'uploading') {
+    return `Uploading & reading scoresheet…${suffix}`
+  }
+
+  const moveNumber = Math.ceil(progress.moveCount / 2)
+  return progress.moveCount > 0
+    ? `Transcribing… move ${moveNumber}${suffix}`
+    : `Transcribing moves…${suffix}`
 }
