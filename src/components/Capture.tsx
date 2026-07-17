@@ -96,6 +96,10 @@ export function Capture({ images, onImagesChange, onScan, scanning, scanProgress
 function scanButtonLabel(progress: ScanProgress, elapsedSeconds: number): string {
   const suffix = elapsedSeconds > 0 ? ` (${elapsedSeconds}s)` : ''
 
+  if (progress.stage === 'retrying' && progress.retry) {
+    return `Retrying after a temporary error… (attempt ${progress.retry.attempt + 1} of ${progress.retry.maxAttempts})${suffix}`
+  }
+
   if (progress.stage === 'uploading') {
     return `Uploading & reading scoresheet…${suffix}`
   }

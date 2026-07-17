@@ -51,6 +51,35 @@ describe('transcribeScoresheet (streamed)', () => {
       transcribeScoresheet([{ base64: 'aGk=', mediaType: 'image/jpeg' }], 'test-key', 'test-model'),
     ).rejects.toThrow(/cut off/)
   })
+
+  it('reports retry attempts on transient errors before eventually succeeding', async () => {
+    vi.useFakeTimers()
+    let call = 0
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      call++
+      if (call <= 2) return new Response('overloaded', { status: 529 })
+      return sseResponse([{ type: 'content_block_delta', delta: { type: 'text_delta', text: '{"moves":["e4"]}' } }])
+    }))
+
+    const progress: ScanProgress[] = []
+    const resultPromise = transcribeScoresheet(
+      [{ base64: 'aGk=', mediaType: 'image/jpeg' }],
+      'test-key',
+      'test-model',
+      (p) => progress.push(p),
+    )
+    await vi.runAllTimersAsync()
+    const result = await resultPromise
+
+    expect(result.moves).toEqual(['e4'])
+    expect(call).toBe(3)
+    const retries = progress.filter((p) => p.stage === 'retrying')
+    expect(retries).toEqual([
+      { stage: 'retrying', moveCount: 0, retry: { attempt: 1, maxAttempts: 4 } },
+      { stage: 'retrying', moveCount: 0, retry: { attempt: 2, maxAttempts: 4 } },
+    ])
+    vi.useRealTimers()
+  })
 })
 
 describe('countMovesInPartialJson', () => {

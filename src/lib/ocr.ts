@@ -29,12 +29,14 @@ Use "" for any header field you cannot find. Use "*" for result if unknown.
 Output compact, minified JSON on as few lines as possible — no indentation, no line breaks between array
 elements. This matters: a long game's move list must fit comfortably within the output budget.`
 
-export type ScanStage = 'uploading' | 'transcribing'
+export type ScanStage = 'uploading' | 'retrying' | 'transcribing'
 
 export interface ScanProgress {
   stage: ScanStage
   /** full-move count so far; only meaningful once stage is 'transcribing' */
   moveCount: number
+  /** only set when stage is 'retrying' */
+  retry?: { attempt: number; maxAttempts: number }
 }
 
 export async function transcribeScoresheet(
@@ -65,7 +67,9 @@ export async function transcribeScoresheet(
     messages: [{ role: 'user', content }],
   })
 
-  const res = await fetchWithRetry(requestBody, apiKey)
+  const res = await fetchWithRetry(requestBody, apiKey, (attempt, maxAttempts) =>
+    onProgress?.({ stage: 'retrying', moveCount: 0, retry: { attempt, maxAttempts } }),
+  )
   const { text, stopReason } = await readStream(res, onProgress)
 
   if (stopReason === 'max_tokens') {
@@ -149,7 +153,12 @@ export function countMovesInPartialJson(text: string): number {
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 529])
 
 /** Anthropic occasionally returns 529 (overloaded) or other 5xx errors; retry a few times with backoff. */
-async function fetchWithRetry(body: string, apiKey: string, maxAttempts = 4): Promise<Response> {
+async function fetchWithRetry(
+  body: string,
+  apiKey: string,
+  onRetry?: (attempt: number, maxAttempts: number) => void,
+  maxAttempts = 4,
+): Promise<Response> {
   let lastError: Error | null = null
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -173,6 +182,7 @@ async function fetchWithRetry(body: string, apiKey: string, maxAttempts = 4): Pr
       throw lastError
     }
 
+    onRetry?.(attempt, maxAttempts)
     const delayMs = 1000 * 2 ** (attempt - 1)
     await new Promise((resolve) => setTimeout(resolve, delayMs))
   }
