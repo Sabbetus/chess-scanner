@@ -6,7 +6,7 @@ import { Settings } from './components/Settings'
 import { transcribeScoresheet, type ScanProgress } from './lib/ocr'
 import { applyCorrection, validateMoves } from './lib/validate'
 import type { GameMetadata } from './lib/pgn'
-import { getAnthropicApiKey, getAnthropicModel } from './lib/storage'
+import { getAnthropicApiKey, getAnthropicModel, getHandwritingNotes } from './lib/storage'
 import { completeLoginIfRedirected } from './lib/lichess'
 import './App.css'
 
@@ -69,11 +69,13 @@ export default function App() {
     try {
       const apiKey = getAnthropicApiKey()
       const model = getAnthropicModel()
+      const handwritingNotes = getHandwritingNotes()
       const result = await transcribeScoresheet(
         images.map((i) => ({ base64: i.base64, mediaType: i.mediaType })),
         apiKey,
         model,
         setScanProgress,
+        handwritingNotes,
       )
       setSanMoves(result.moves)
       setMetadata({

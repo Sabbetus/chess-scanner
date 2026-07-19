@@ -4,6 +4,7 @@
 const KEYS = {
   anthropicApiKey: 'chess-scanner:anthropic-api-key',
   anthropicModel: 'chess-scanner:anthropic-model',
+  handwritingNotes: 'chess-scanner:handwriting-notes',
   lichessToken: 'chess-scanner:lichess-token',
   lichessUsername: 'chess-scanner:lichess-username',
 } as const
@@ -23,6 +24,15 @@ export function getAnthropicModel(): string {
 
 export function setAnthropicModel(model: string): void {
   localStorage.setItem(KEYS.anthropicModel, model)
+}
+
+export function getHandwritingNotes(): string {
+  return localStorage.getItem(KEYS.handwritingNotes) ?? ''
+}
+
+export function setHandwritingNotes(notes: string): void {
+  if (notes) localStorage.setItem(KEYS.handwritingNotes, notes)
+  else localStorage.removeItem(KEYS.handwritingNotes)
 }
 
 export interface LichessAuth {

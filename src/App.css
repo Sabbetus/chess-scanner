@@ -290,11 +290,17 @@ button.danger {
 }
 
 .settings-panel input,
-.settings-panel select {
+.settings-panel select,
+.settings-panel textarea {
   font: inherit;
   padding: 8px;
   border-radius: 4px;
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text-h);
+}
+
+.settings-panel textarea {
+  resize: vertical;
+  font-size: 13px;
 }

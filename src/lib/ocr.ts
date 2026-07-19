@@ -44,6 +44,7 @@ export async function transcribeScoresheet(
   apiKey: string,
   model: string,
   onProgress?: (progress: ScanProgress) => void,
+  handwritingNotes?: string,
 ): Promise<OcrResult> {
   if (!apiKey) throw new Error('No Anthropic API key set. Add one in Settings.')
   if (images.length === 0) throw new Error('No images to transcribe.')
@@ -59,11 +60,15 @@ export async function transcribeScoresheet(
     text: 'Transcribe this chess scoresheet into the JSON format described in your instructions.',
   })
 
+  const system = handwritingNotes?.trim()
+    ? `${SYSTEM_PROMPT}\n\nThe scoresheet's author has shared these notes about their own handwriting — apply them:\n${handwritingNotes.trim()}`
+    : SYSTEM_PROMPT
+
   const requestBody = JSON.stringify({
     model,
     max_tokens: 8192,
     stream: true,
-    system: SYSTEM_PROMPT,
+    system,
     messages: [{ role: 'user', content }],
   })
 

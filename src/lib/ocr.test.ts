@@ -39,6 +39,38 @@ describe('transcribeScoresheet (streamed)', () => {
     expect(progress[progress.length - 1]).toEqual({ stage: 'transcribing', moveCount: 3 })
   })
 
+  it('includes handwriting notes in the system prompt when provided', async () => {
+    let capturedBody = ''
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init: RequestInit) => {
+      capturedBody = init.body as string
+      return sseResponse([{ type: 'content_block_delta', delta: { type: 'text_delta', text: '{"moves":["e4"]}' } }])
+    }))
+
+    await transcribeScoresheet(
+      [{ base64: 'aGk=', mediaType: 'image/jpeg' }],
+      'test-key',
+      'test-model',
+      undefined,
+      'My 7 always has a crossbar; my 1 does not.',
+    )
+
+    const requestBody = JSON.parse(capturedBody)
+    expect(requestBody.system).toContain('My 7 always has a crossbar; my 1 does not.')
+  })
+
+  it('omits the handwriting-notes section when none are set', async () => {
+    let capturedBody = ''
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init: RequestInit) => {
+      capturedBody = init.body as string
+      return sseResponse([{ type: 'content_block_delta', delta: { type: 'text_delta', text: '{"moves":["e4"]}' } }])
+    }))
+
+    await transcribeScoresheet([{ base64: 'aGk=', mediaType: 'image/jpeg' }], 'test-key', 'test-model')
+
+    const requestBody = JSON.parse(capturedBody)
+    expect(requestBody.system).not.toContain('handwriting')
+  })
+
   it('surfaces max_tokens truncation as a clear error', async () => {
     vi.stubGlobal('fetch', vi.fn(async () =>
       sseResponse([
