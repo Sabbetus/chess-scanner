@@ -96,6 +96,10 @@ export default function App() {
     setSanMoves((prev) => applyCorrection(prev, index, newSan))
   }
 
+  function handleDeleteLastMove() {
+    setSanMoves((prev) => prev.slice(0, -1))
+  }
+
   function resetToCapture() {
     sessionStorage.removeItem(SESSION_KEY)
     setImages([])
@@ -144,6 +148,7 @@ export default function App() {
               finalFen={validation.finalFen}
               firstErrorIndex={validation.firstErrorIndex}
               onCorrect={handleCorrect}
+              onDeleteLastMove={handleDeleteLastMove}
             />
             <button
               type="button"

@@ -8,11 +8,12 @@ interface Props {
   finalFen: string
   firstErrorIndex: number | null
   onCorrect: (index: number, newSan: string) => void
+  onDeleteLastMove: () => void
 }
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
-export function ReviewBoard({ moves, finalFen, firstErrorIndex, onCorrect }: Props) {
+export function ReviewBoard({ moves, finalFen, firstErrorIndex, onCorrect, onDeleteLastMove }: Props) {
   // currentIndex of -1 means "starting position, no moves played yet".
   // Otherwise it's the index of the move whose resulting position is shown.
   const [currentIndex, setCurrentIndex] = useState<number>(defaultIndex(moves, firstErrorIndex))
@@ -66,22 +67,35 @@ export function ReviewBoard({ moves, finalFen, firstErrorIndex, onCorrect }: Pro
         )}
       </div>
 
-      <ol className="move-list">
-        {chunk(moves, 2).map((pair, moveNum) => (
-          <li key={moveNum} className="move-row">
-            <span className="move-num">{moveNum + 1}.</span>
-            {pair.map((m) => (
-              <MoveCell
-                key={m.index}
-                move={m}
-                isCurrent={currentIndex === m.index}
-                onSelect={() => setCurrentIndex(m.index)}
-                onCorrect={(san) => onCorrect(m.index, san)}
-              />
-            ))}
-          </li>
-        ))}
-      </ol>
+      <div className="move-list-col">
+        <ol className="move-list">
+          {chunk(moves, 2).map((pair, moveNum) => (
+            <li key={moveNum} className="move-row">
+              <span className="move-num">{moveNum + 1}.</span>
+              {pair.map((m) => (
+                <MoveCell
+                  key={m.index}
+                  move={m}
+                  isCurrent={currentIndex === m.index}
+                  onSelect={() => setCurrentIndex(m.index)}
+                  onCorrect={(san) => onCorrect(m.index, san)}
+                />
+              ))}
+            </li>
+          ))}
+        </ol>
+
+        {moves.length > 0 && (
+          <button
+            type="button"
+            className="delete-last-move"
+            onClick={onDeleteLastMove}
+            title="Remove the last move from the list, e.g. if the OCR picked up a stray mark as an extra move"
+          >
+            🗑 Delete last move ({moves[moves.length - 1].san || '(blank)'})
+          </button>
+        )}
+      </div>
     </div>
   )
 }

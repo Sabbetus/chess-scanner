@@ -111,12 +111,15 @@ button.danger {
   margin-top: 8px;
 }
 
+.move-list-col {
+  flex: 1;
+  min-width: 240px;
+}
+
 .move-list {
   list-style: none;
   padding: 0;
   margin: 0;
-  flex: 1;
-  min-width: 240px;
 }
 
 .move-row {
@@ -124,6 +127,15 @@ button.danger {
   align-items: center;
   gap: 8px;
   padding: 4px 0;
+}
+
+.delete-last-move {
+  margin-top: 12px;
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  font-size: 13px;
+  padding: 6px 10px;
 }
 
 .move-num {
